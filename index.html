@@ -2,314 +2,474 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#101011">
-<title>Live TV</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08090c">
+<title>Live TV - IPTV Player</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://code.iconify.design/iconify-icon/3.0.4/iconify-icon.min.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/simple-liquid-glass/web-component"></script>
 
 <style>
-  @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap");
+:root {
+  color-scheme: dark;
+  --bg: #08090c;
+  --fg: #f7f7fa;
+  --muted: rgba(255,255,255,.58);
+  --glass-bg: rgba(35,37,43,.34);
+  --glass-border: rgba(255,255,255,.19);
+  --accent: #f28b42;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
 
-  :root {
-    color-scheme: dark;
-    --bg: #101011;
-    --panel: #181819;
-    --hover: #252527;
-    --border: #303033;
-    --text: #f5f5f5;
-    --muted: #929297;
-    --accent: #f28b42;
-  }
+* { box-sizing: border-box; }
 
-  * { box-sizing: border-box; }
+html, body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
 
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--bg);
-    color: var(--text);
-    font-family: Geist, -apple-system, BlinkMacSystemFont, sans-serif;
-  }
+body {
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(90,100,125,.18), transparent 55%),
+    radial-gradient(ellipse at 80% 100%, rgba(60,70,95,.14), transparent 55%),
+    var(--bg);
+}
 
-  button, input, select { font: inherit; }
-  button { cursor: pointer; }
+button, input, select { font: inherit; }
+button { color: inherit; border: 0; cursor: pointer; background: transparent; }
 
-  header {
-    height: 62px;
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    background: #141415;
-  }
+/* Header */
 
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 17px;
-    font-weight: 700;
-  }
+header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 62px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(12,13,17,.62);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(28px) saturate(1.6);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+}
 
-  .brand-icon {
-    width: 29px;
-    height: 29px;
-    border-radius: 8px;
-    display: grid;
-    place-items: center;
-    background: var(--accent);
-    color: #17110c;
-  }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
 
-  .header-status { color: var(--muted); font-size: 12px; }
+.brand-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #17110c;
+  box-shadow: 0 5px 20px rgba(242,139,66,.35);
+}
 
-  main {
-    max-width: 1600px;
-    margin: auto;
-    padding: 22px;
-  }
+.brand-icon iconify-icon { width: 17px; height: 17px; font-size: 17px; }
 
-  .layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
-    gap: 20px;
-    align-items: start;
-  }
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
 
-  .player-column { min-width: 0; }
+.header-status iconify-icon { width: 13px; height: 13px; font-size: 13px; }
 
-  .video-wrap {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    background: #050505;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-  }
+/* Layout */
 
-  #player-frame {
-    width: 100%;
-    height: 100%;
-    display: block;
-    border: 0;
-    background: #050505;
-  }
+main {
+  max-width: 1600px;
+  margin: auto;
+  padding: 22px;
+}
 
-  .overlay-placeholder {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 24px;
-    text-align: center;
-    background: rgba(5, 5, 5, .9);
-    pointer-events: none;
-    transition: opacity .2s;
-  }
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  align-items: start;
+}
 
-  .overlay-placeholder.hidden { opacity: 0; }
+.player-column { min-width: 0; }
 
-  .overlay-icon {
-    width: 54px; height: 54px;
-    display: grid; place-items: center;
-    border-radius: 16px;
-    background: #252527;
-    color: var(--accent);
-    font-size: 25px;
-  }
+/* Video frame */
 
-  .overlay-title { font-size: 16px; font-weight: 600; }
-  .overlay-description { max-width: 360px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.video-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #050505;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 70px rgba(0,0,0,.5),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
 
-  .channel-info {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 17px 2px;
-  }
+#player-frame {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  background: #050505;
+}
 
-  .channel-logo {
-    width: 48px; height: 48px;
-    flex: 0 0 48px;
-    object-fit: contain;
-    border-radius: 10px;
-    background: var(--panel);
-    padding: 5px;
-  }
+.overlay-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(8,9,12,.9);
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
 
-  .channel-details { min-width: 0; flex: 1; }
+.overlay-placeholder.hidden { opacity: 0; }
 
-  .channel-name {
-    font-size: 17px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.overlay-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  color: var(--accent);
+  box-shadow: 0 12px 40px rgba(0,0,0,.3);
+}
 
-  .channel-meta { margin-top: 5px; color: var(--muted); font-size: 12px; }
+.overlay-icon iconify-icon { width: 26px; height: 26px; font-size: 26px; }
 
-  .live-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #e98270;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .5px;
-  }
+.overlay-title { font-size: 16px; font-weight: 600; }
+.overlay-description { max-width: 360px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
-  .live-dot { width: 7px; height: 7px; background: #e98270; border-radius: 50%; }
+/* Channel info row */
 
-  .sidebar {
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--panel);
-    overflow: hidden;
-  }
+.channel-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 17px 4px;
+}
 
-  .sidebar-header { padding: 17px; border-bottom: 1px solid var(--border); }
+.channel-logo {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+  object-fit: contain;
+  border-radius: 13px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  padding: 6px;
+}
 
-  .sidebar-title { font-size: 15px; font-weight: 700; margin-bottom: 13px; }
+.channel-details { min-width: 0; flex: 1; }
 
-  .controls { display: grid; gap: 9px; }
+.channel-name {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  select, input {
-    width: 100%;
-    min-width: 0;
-    height: 39px;
-    padding: 0 11px;
-    color: var(--text);
-    background: #222224;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    outline: none;
-    font-size: 12px;
-  }
+.channel-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
 
-  select:focus, input:focus { border-color: var(--accent); }
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: rgba(255,69,69,.12);
+  border: 1px solid rgba(255,69,69,.25);
+  color: #ff8080;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
 
-  .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: #ff4545;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ff4545;
+}
 
-  .channel-count { padding: 12px 16px 8px; color: var(--muted); font-size: 11px; }
+/* Actions */
 
-  .channel-list {
-    max-height: calc(100vh - 290px);
-    min-height: 250px;
-    overflow-y: auto;
-    padding: 5px 8px 10px;
-  }
+.player-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
 
-  .channel {
-    width: 100%;
-    min-height: 65px;
-    padding: 9px;
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    text-align: left;
-    color: var(--text);
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    transition: background .15s, border-color .15s;
-  }
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  color: var(--muted);
+  background: rgba(35,37,43,.4);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
 
-  .channel:hover { background: var(--hover); }
+.action:hover {
+  color: white;
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,.2);
+}
 
-  .channel.active {
-    background: #30251e;
-    border-color: #69452d;
-  }
+.action.selected {
+  color: var(--accent);
+  border-color: rgba(242,139,66,.4);
+  background: rgba(242,139,66,.1);
+}
 
-  .channel img {
-    width: 39px; height: 39px;
-    flex: 0 0 39px;
-    object-fit: contain;
-    padding: 3px;
-    border-radius: 7px;
-    background: #242426;
-  }
+.action iconify-icon { width: 15px; height: 15px; font-size: 15px; }
 
-  .channel-text { min-width: 0; flex: 1; }
+.section-heading {
+  margin: 22px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
 
-  .channel-text strong {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.note { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.proxy-note { margin-top: 8px; color: var(--muted); font-size: 10px; opacity: .75; }
 
-  .channel-text span {
-    display: block;
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 10px;
-  }
+/* Sidebar */
 
-  .empty {
-    padding: 35px 15px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.6;
-  }
+.sidebar {
+  min-width: 0;
+  border-radius: 20px;
+  overflow: hidden;
+}
 
-  .player-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin: 0 0 12px;
-  }
+.sidebar-header { padding: 18px 18px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
 
-  .action {
-    height: 34px;
-    padding: 0 11px;
-    color: var(--muted);
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    font-size: 11px;
-  }
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  letter-spacing: -.01em;
+}
 
-  .action:hover { color: white; background: var(--hover); }
-  .action.selected { color: var(--accent); border-color: #69452d; }
+.sidebar-title iconify-icon { width: 16px; height: 16px; font-size: 16px; color: var(--accent); }
 
-  .section-heading { margin: 22px 0 10px; font-size: 13px; font-weight: 600; }
-  .note { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.controls { display: grid; gap: 9px; }
 
-  .proxy-note { margin-top: 8px; color: var(--muted); font-size: 10px; }
+select, input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  color: var(--text, var(--fg));
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 11px;
+  outline: none;
+  font-size: 12px;
+  transition: border-color .15s ease, background .15s ease;
+}
 
-  @media (max-width: 850px) {
-    main { padding: 13px; }
-    .layout { grid-template-columns: 1fr; }
-    .channel-list { max-height: 470px; }
-    header { padding: 0 15px; }
-  }
+select:hover, input:hover { background: rgba(255,255,255,.07); }
 
-  @media (max-width: 500px) {
-    .channel-name { font-size: 15px; }
-    .video-wrap { border-radius: 8px; }
-    .filter-row { grid-template-columns: 1fr; }
-  }
+select:focus, input:focus {
+  border-color: rgba(242,139,66,.5);
+  background: rgba(255,255,255,.08);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNSkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNiA5bDYgNiA2LTYiLz48L3N2Zz4=");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  padding-right: 34px;
+}
+
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.channel-count {
+  padding: 12px 18px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.channel-list {
+  max-height: calc(100vh - 290px);
+  min-height: 250px;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+}
+
+.channel-list::-webkit-scrollbar { width: 6px; }
+.channel-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 6px; }
+.channel-list::-webkit-scrollbar-track { background: transparent; }
+
+.channel {
+  width: 100%;
+  min-height: 64px;
+  padding: 9px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.channel:hover { background: rgba(255,255,255,.06); }
+
+.channel.active {
+  background: rgba(242,139,66,.1);
+  border-color: rgba(242,139,66,.35);
+}
+
+.channel img {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: contain;
+  padding: 4px;
+  border-radius: 9px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.channel-text { min-width: 0; flex: 1; }
+
+.channel-text strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-text span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.empty {
+  padding: 40px 15px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Liquid glass wrapper base */
+
+liquid-glass.glass-panel {
+  display: block;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 20px;
+}
+
+.glass-fallback {
+  border-radius: 20px;
+  background: rgba(24,25,30,.6);
+  border: 1px solid rgba(255,255,255,.1);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.1);
+}
+
+/* Responsive */
+
+@media (max-width: 850px) {
+  main { padding: 14px; }
+  .layout { grid-template-columns: 1fr; }
+  .channel-list { max-height: 470px; }
+  header { padding: 0 15px; }
+}
+
+@media (max-width: 500px) {
+  .channel-name { font-size: 15px; }
+  .video-wrap { border-radius: 14px; }
+  .filter-row { grid-template-columns: 1fr; }
+  .action span { display: none; }
+  .action { padding: 0 12px; }
+}
 </style>
 </head>
 
 <body>
   <header>
     <div class="brand">
-      <div class="brand-icon">▶</div>
+      <div class="brand-icon"><iconify-icon icon="ph:play-fill"></iconify-icon></div>
       Live TV
     </div>
-    <div class="header-status" id="headerStatus">Ready</div>
+    <div class="header-status">
+      <iconify-icon icon="ph:circle-notch" id="statusIcon"></iconify-icon>
+      <span id="headerStatus">Ready</span>
+    </div>
   </header>
 
   <main>
@@ -325,7 +485,7 @@
           ></iframe>
 
           <div class="overlay-placeholder" id="overlay">
-            <div class="overlay-icon">▶</div>
+            <div class="overlay-icon"><iconify-icon icon="ph:television-simple"></iconify-icon></div>
             <div class="overlay-title" id="overlayTitle">Select a channel</div>
             <div class="overlay-description" id="overlayDescription">
               Choose a channel from the list to start watching.
@@ -343,9 +503,18 @@
         </div>
 
         <div class="player-actions">
-          <button class="action" id="reloadButton">↻ Reload stream</button>
-          <button class="action" id="fullscreenButton">⛶ Fullscreen</button>
-          <button class="action" id="favoriteButton">☆ Favorite</button>
+          <button class="action" id="reloadButton">
+            <iconify-icon icon="ph:arrow-clockwise"></iconify-icon>
+            <span>Reload stream</span>
+          </button>
+          <button class="action" id="fullscreenButton">
+            <iconify-icon icon="ph:corners-out"></iconify-icon>
+            <span>Fullscreen</span>
+          </button>
+          <button class="action" id="favoriteButton">
+            <iconify-icon icon="ph:star"></iconify-icon>
+            <span>Favorite</span>
+          </button>
         </div>
 
         <div class="section-heading">About this player</div>
@@ -358,33 +527,40 @@
       </section>
 
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <div class="sidebar-title">Channels</div>
+        <liquid-glass class="glass-panel" backdrop-selector="body" strength="0.12" radius="20" blur="18" saturation="1.55">
+          <div class="glass-fallback">
+            <div class="sidebar-header">
+              <div class="sidebar-title">
+                <iconify-icon icon="ph:list-dashes"></iconify-icon>
+                Channels
+              </div>
 
-          <div class="controls">
-            <select id="countrySelect"></select>
+              <div class="controls">
+                <select id="countrySelect"></select>
 
-            <div class="filter-row">
-              <select id="categorySelect">
-                <option value="">All categories</option>
-              </select>
+                <div class="filter-row">
+                  <select id="categorySelect">
+                    <option value="">All categories</option>
+                  </select>
 
-              <select id="sortSelect">
-                <option value="name">Name A–Z</option>
-                <option value="group">Category</option>
-                <option value="favorites">Favorites first</option>
-              </select>
+                  <select id="sortSelect">
+                    <option value="name">Name A–Z</option>
+                    <option value="group">Category</option>
+                    <option value="favorites">Favorites first</option>
+                  </select>
+                </div>
+
+                <input id="search" type="search" placeholder="Search channels..." autocomplete="off">
+              </div>
             </div>
 
-            <input id="search" type="search" placeholder="Search channels..." autocomplete="off">
+            <div class="channel-count" id="channelCount">Loading channels...</div>
+
+            <div class="channel-list" id="channelList">
+              <div class="empty">Loading playlist...</div>
+            </div>
           </div>
-        </div>
-
-        <div class="channel-count" id="channelCount">Loading channels...</div>
-
-        <div class="channel-list" id="channelList">
-          <div class="empty">Loading playlist...</div>
-        </div>
+        </liquid-glass>
       </aside>
     </div>
   </main>
@@ -394,7 +570,7 @@
     const PROXY = "https://proxy.cors.dev/";
     const PLAYER_URL = "player.html";
 
-    // Base64 country names (no emoji).
+    // Base64-encoded country names (no emoji).
     const COUNTRY_NAMES_B64 = {
       us: "VW5pdGVkIFN0YXRlcw==",
       ca: "Q2FuYWRh",
@@ -487,6 +663,7 @@
     const currentMeta = document.getElementById("currentMeta");
     const currentLogo = document.getElementById("currentLogo");
     const headerStatus = document.getElementById("headerStatus");
+    const statusIcon = document.getElementById("statusIcon");
     const favoriteButton = document.getElementById("favoriteButton");
     const proxyNote = document.getElementById("proxyNote");
 
@@ -497,7 +674,17 @@
 
     const favorites = new Set(JSON.parse(localStorage.getItem("iptv-favorites") || "[]"));
 
-    function setStatus(m) { headerStatus.textContent = m; }
+    const STATUS_ICONS = {
+      ready: "ph:check-circle",
+      loading: "ph:circle-notch",
+      error: "ph:warning-circle"
+    };
+
+    function setStatus(text, kind = "ready") {
+      headerStatus.textContent = text;
+      statusIcon.innerHTML = `<iconify-icon icon="${STATUS_ICONS[kind] || STATUS_ICONS.ready}"></iconify-icon>`;
+    }
+
     function showOverlay(title, desc) {
       overlayTitle.textContent = title;
       overlayDescription.textContent = desc;
@@ -597,7 +784,7 @@
       categorySelect.innerHTML = '<option value="">All categories</option>';
       renderChannels();
       channelCount.textContent = "Loading channels...";
-      setStatus("Loading");
+      setStatus("Loading", "loading");
       showOverlay("Loading channels", "Fetching the selected country's playlist...");
 
       const url = BASE + "countries/" + code + ".m3u";
@@ -609,7 +796,7 @@
         populateCategories();
         renderChannels();
         channelCount.textContent = channels.length.toLocaleString() + " channels";
-        setStatus("Ready");
+        setStatus("Ready", "ready");
         proxyNote.textContent = usedProxy
           ? "Playlist loaded using proxy fallback."
           : "Playlist loaded directly.";
@@ -625,7 +812,7 @@
         console.error(err);
         channelCount.textContent = "Unable to load playlist";
         channelList.innerHTML = '<div class="empty">' + escapeHTML(err.message) + '</div>';
-        setStatus("Error");
+        setStatus("Error", "error");
         proxyNote.textContent = "Both playlist loading attempts failed.";
         showOverlay("Playlist error", err.message);
       }
@@ -716,10 +903,9 @@
 
       updateFavoriteButton();
       renderChannels();
-      setStatus("Connecting");
+      setStatus("Connecting", "loading");
       hideOverlay();
 
-      // Point the iframe at player.html with the channel URL + name.
       const qs = new URLSearchParams();
       qs.set("src", channel.url);
       qs.set("title", channel.name);
@@ -729,7 +915,9 @@
     function updateFavoriteButton() {
       const isFav = currentChannel && favorites.has(currentChannel.url);
       favoriteButton.classList.toggle("selected", !!isFav);
-      favoriteButton.textContent = isFav ? "★ Favorited" : "☆ Favorite";
+      favoriteButton.innerHTML = isFav
+        ? '<iconify-icon icon="ph:star-fill"></iconify-icon><span>Favorited</span>'
+        : '<iconify-icon icon="ph:star"></iconify-icon><span>Favorite</span>';
     }
 
     countrySelect.addEventListener("change", () => loadCountry(countrySelect.value));
