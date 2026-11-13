@@ -1339,7 +1339,9 @@ video::cue {
   }
 
   function activeCaptionId(choices) {
-    if (hls && hls.subtitleTrack >= 0) return `hls-${hls.subtitleTrack}`;
+    if (hls && hls.subtitleTrack >= 0 && hls.subtitleDisplay) {
+      return `hls-${hls.subtitleTrack}`;
+    }
 
     try {
       for (let i = 0; i < video.textTracks.length; i++) {
@@ -1395,14 +1397,25 @@ video::cue {
   }
 
   function selectCaption(choice, closeMenu = true) {
+    // Disable all browser-native TextTracks first.
     try {
       for (let i = 0; i < video.textTracks.length; i++) {
         video.textTracks[i].mode = "disabled";
       }
     } catch (_) {}
 
-    if (hls) hls.subtitleTrack = choice && choice.kind === "hls" ? choice.index : -1;
+    // HLS.js-managed subtitles.
+    if (hls) {
+      if (choice && choice.kind === "hls") {
+        hls.subtitleTrack = choice.index;
+        hls.subtitleDisplay = true;
+      } else {
+        hls.subtitleTrack = -1;
+        hls.subtitleDisplay = false;
+      }
+    }
 
+    // Native / external <track> elements.
     if (choice && (choice.kind === "native" || choice.kind === "external")) {
       if (choice.track) choice.track.mode = "showing";
     }
@@ -1489,7 +1502,7 @@ video::cue {
     updateVolumeIcon();
   }
 
-  // ---------- Playback: native first, HLS.js fallback (like the working player) ----------
+  // ---------- Playback: native first, HLS.js fallback ----------
 
   function destroyPlayer() {
     destroyHLS();
@@ -1590,9 +1603,15 @@ video::cue {
         if (d && d.details) setLiveState(!!d.details.live);
       });
 
-      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => buildCaptionMenu());
+      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+        hls.subtitleDisplay = true;
+        buildCaptionMenu();
+      });
       hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, () => refreshCaptionSelection());
-      hls.on(Hls.Events.SUBTITLE_TRACK_LOADED, () => buildCaptionMenu());
+      hls.on(Hls.Events.SUBTITLE_TRACK_LOADED, () => {
+        hls.subtitleDisplay = true;
+        buildCaptionMenu();
+      });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (!data.fatal) return;
@@ -1915,9 +1934,6 @@ video::cue {
   // ?src=VIDEO_URL
   // ?src=VIDEO_URL&title=Movie
   // ?src=VIDEO_URL&captions=EN.vtt&captions=ES.srt
-  //
-  // Playback: Safari uses native HLS via video.src; Chrome/Firefox/Edge use HLS.js.
-  // Custom controls overlay the native <video>; no browser controls are shown.
 
   const params = new URLSearchParams(location.search);
   const initialSource = params.get("src");
