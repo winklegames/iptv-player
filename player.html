@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -529,7 +528,10 @@ liquid-glass.glass {
   background: rgba(255,255,255,.12);
 }
 
-.caption-check, .quality-check { opacity: 0; color: rgba(255,255,255,.95); }\n.caption-check iconify-icon, .quality-check iconify-icon { font-size: 15px; vertical-align: middle; }\n.caption-kind { color: rgba(255,255,255,.42); font-size: 10px; margin-left: 9px; }
+.caption-check, .quality-check { opacity: 0; color: rgba(255,255,255,.95); }
+.caption-check iconify-icon, .quality-check iconify-icon { font-size: 15px; vertical-align: middle; }
+.caption-kind { color: rgba(255,255,255,.42); font-size: 10px; margin-left: 9px; }
+
 .caption-option.selected .caption-check,
 .quality-option.selected .quality-check { opacity: 1; }
 
@@ -697,7 +699,7 @@ video::cue {
 
     <div id="empty" aria-label="Open a video">
       <div class="empty-content">
-        <div class="empty-icon"><iconify-icon icon="f7:play-fill"></iconify-icon></div>
+        <div class="empty-icon"><iconify-icon icon="ph:play-fill"></iconify-icon></div>
         <div class="empty-label">Open a video</div>
       </div>
     </div>
@@ -710,10 +712,10 @@ video::cue {
 
       <div id="top-actions">
         <button class="top-button" id="pip-btn" aria-label="Picture in Picture" title="Picture in Picture">
-          <iconify-icon icon="f7:rectangle-on-rectangle"></iconify-icon>
+          <iconify-icon icon="ph:picture-in-picture"></iconify-icon>
         </button>
         <button class="top-button" id="info-btn" aria-label="Player information" title="Player information">
-          <iconify-icon icon="f7:info-circle"></iconify-icon>
+          <iconify-icon icon="ph:info"></iconify-icon>
         </button>
       </div>
     </div>
@@ -731,7 +733,7 @@ video::cue {
     <div id="loading"></div>
 
     <button id="center-play" aria-label="Play or pause">
-      <iconify-icon icon="f7:play-fill"></iconify-icon>
+      <iconify-icon icon="ph:play-fill"></iconify-icon>
     </button>
 
     <div id="bottom">
@@ -748,20 +750,20 @@ video::cue {
           <liquid-glass class="glass" backdrop-selector="#stage" strength="0.13" radius="19" blur="13" saturation="1.55">
             <div class="control-group">
               <button class="control-btn primary" id="play-btn" aria-label="Play">
-                <iconify-icon icon="f7:play-fill"></iconify-icon>
+                <iconify-icon icon="ph:play-fill"></iconify-icon>
               </button>
 
               <button class="control-btn" id="back-btn" aria-label="Back 10 seconds">
-                <iconify-icon icon="f7:rewind"></iconify-icon>
+                <iconify-icon icon="ph:arrow-counter-clockwise"></iconify-icon>
               </button>
 
               <button class="control-btn" id="forward-btn" aria-label="Forward 10 seconds">
-                <iconify-icon icon="f7:forward"></iconify-icon>
+                <iconify-icon icon="ph:arrow-clockwise"></iconify-icon>
               </button>
 
               <div id="volume-control">
                 <button class="control-btn" id="mute-btn" aria-label="Mute">
-                  <iconify-icon icon="f7:volume"></iconify-icon>
+                  <iconify-icon icon="ph:speaker-high"></iconify-icon>
                 </button>
                 <input id="volume-slider" type="range" min="0" max="1" step=".01" value="1" aria-label="Volume">
               </div>
@@ -775,16 +777,16 @@ video::cue {
           <liquid-glass class="glass" backdrop-selector="#stage" strength="0.13" radius="19" blur="13" saturation="1.55">
             <div class="control-group">
               <button class="control-btn" id="quality-btn" aria-label="Stream quality" title="Quality">
-                <iconify-icon icon="f7:line-horizontal-3-decrease"></iconify-icon>
+                <iconify-icon icon="ph:list-dashes"></iconify-icon>
               </button>
               <button class="control-btn" id="captions-btn" aria-label="Captions" title="Captions">
-                <iconify-icon icon="f7:captions-bubble"></iconify-icon>
+                <iconify-icon icon="ph:closed-captioning"></iconify-icon>
               </button>
               <button class="control-btn" id="settings-btn" aria-label="Settings" title="Settings">
-                <iconify-icon icon="f7:line-horizontal-3-decrease"></iconify-icon>
+                <iconify-icon icon="ph:sliders-horizontal"></iconify-icon>
               </button>
               <button class="control-btn" id="fullscreen-btn" aria-label="Fullscreen" title="Fullscreen">
-                <iconify-icon icon="f7:expand"></iconify-icon>
+                <iconify-icon icon="ph:corners-out"></iconify-icon>
               </button>
             </div>
           </liquid-glass>
@@ -872,11 +874,15 @@ video::cue {
 
   function setIcon(element, name) {
     if (!element) return;
-    element.innerHTML = `<iconify-icon icon="f7:${name}"></iconify-icon>`;
+    element.innerHTML = `<iconify-icon icon="ph:${name}"></iconify-icon>`;
   }
 
-  function icons() {
-    // Iconify's custom element renders each icon on demand.
+  // IPTV: optional CORS proxy. Usage: ?proxy=https://your-proxy.com/?url=
+  function proxyUrl(url) {
+    const params = new URLSearchParams(location.search);
+    const proxy = params.get("proxy");
+    if (!proxy) return url;
+    return `${proxy}${encodeURIComponent(url)}`;
   }
 
   function toast(message) {
@@ -930,7 +936,6 @@ video::cue {
     $("play-btn").setAttribute("aria-label", playing ? "Pause" : "Play");
     app.classList.toggle("paused", !playing);
     app.classList.toggle("playing", playing);
-    icons();
 
     if (playing) showControls();
     else {
@@ -956,11 +961,10 @@ video::cue {
 
   function updateVolumeIcon() {
     const muted = video.muted || video.volume === 0;
-    const icon = muted ? "volume-mute" : video.volume < .5 ? "volume-low" : "volume";
+    const icon = muted ? "speaker-none" : video.volume < .5 ? "speaker-low" : "speaker-high";
     setIcon($("mute-btn"), icon);
     $("mute-btn").setAttribute("aria-label", muted ? "Unmute" : "Mute");
     volumeSlider.value = muted ? 0 : video.volume;
-    icons();
   }
 
   function toggleMute() {
@@ -1148,11 +1152,11 @@ video::cue {
   }
 
   function parseSRT(text) {
-    return "WEBVTT\\n\\n" + text
-      .replace(/^\\uFEFF/, "")
-      .replace(/\\r/g, "")
-      .replace(/(\\d{2}:\\d{2}:\\d{2}),(\\d{3})/g, "$1.$2")
-      .replace(/(\\d{2}:\\d{2}),(\\d{3})/g, "$1.$2");
+    return "WEBVTT\n\n" + text
+      .replace(/^\uFEFF/, "")
+      .replace(/\r/g, "")
+      .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2")
+      .replace(/(\d{2}:\d{2}),(\d{3})/g, "$1.$2");
   }
 
   function escapeHTML(value) {
@@ -1169,7 +1173,7 @@ video::cue {
       const text = await response.text();
       let captionURL = url;
 
-      if (/\\.srt(?:$|\\?)/i.test(url)) {
+      if (/\.srt(?:$|\?)/i.test(url)) {
         captionURL = URL.createObjectURL(
           new Blob([parseSRT(text)], { type: "text/vtt" })
         );
@@ -1177,7 +1181,7 @@ video::cue {
       }
 
       const filename = decodeURIComponent(url.split("/").pop().split("?")[0]) || `Caption ${index + 1}`;
-      const label = filename.replace(/\\.(vtt|srt)$/i, "").replace(/[_-]/g, " ");
+      const label = filename.replace(/\.(vtt|srt)$/i, "").replace(/[_-]/g, " ");
       const match = filename.match(/(?:^|[._-])([a-z]{2,3})(?:[._-]|$)/i);
       const language = match ? match[1].toLowerCase() : "en";
 
@@ -1289,7 +1293,7 @@ video::cue {
 
     const off = document.createElement("button");
     off.className = "caption-option";
-    off.innerHTML = `<span>Off</span><span class="caption-check"><iconify-icon icon="f7:checkmark"></iconify-icon></span>`;
+    off.innerHTML = `<span>Off</span><span class="caption-check"><iconify-icon icon="ph:check"></iconify-icon></span>`;
     off.addEventListener("click", () => selectCaption(null));
     captionOptions.appendChild(off);
 
@@ -1306,7 +1310,7 @@ video::cue {
       const language = choice.language
         ? `<span class="caption-kind">${escapeHTML(choice.language.toUpperCase())}</span>`
         : "";
-      option.innerHTML = `<span>${escapeHTML(choice.label)}${language}</span><span class="caption-check"><iconify-icon icon="f7:checkmark"></iconify-icon></span>`;
+      option.innerHTML = `<span>${escapeHTML(choice.label)}${language}</span><span class="caption-check"><iconify-icon icon="ph:check"></iconify-icon></span>`;
       option.addEventListener("click", () => selectCaption(choice));
       captionOptions.appendChild(option);
     });
@@ -1369,7 +1373,7 @@ video::cue {
     options.forEach(option => {
       const button = document.createElement("button");
       button.className = "quality-option";
-      button.innerHTML = `<span>${option.label}</span><span class="quality-check"><iconify-icon icon="f7:checkmark"></iconify-icon></span>`;
+      button.innerHTML = `<span>${option.label}</span><span class="quality-check"><iconify-icon icon="ph:check"></iconify-icon></span>`;
 
       if (option.value === selectedQuality) button.classList.add("selected");
 
@@ -1421,10 +1425,22 @@ video::cue {
   async function loadSource(source) {
     if (!source) return;
 
+    // IPTV: block mixed-content (HTTP stream on HTTPS page) up front.
+    if (location.protocol === "https:" && source.startsWith("http:")) {
+      const params = new URLSearchParams(location.search);
+      if (!params.get("proxy")) {
+        toast("HTTP stream blocked on an HTTPS page. Use ?proxy= or an HTTPS stream.");
+        return;
+      }
+    }
+
+    // IPTV: apply optional CORS proxy.
+    source = proxyUrl(source);
+
     cleanupSource();
     activeSource = source;
 
-    const isHLS = /\.m3u8(?:$|\?)/i.test(source);
+    const isHLS = /\.m3u8(?:$|\?)/i.test(source) || /\/manifest(?:\(|\.m3u8)/i.test(source);
     playerType = isHLS ? "HLS stream" : "Direct video";
     sourceMime = isHLS ? "application/vnd.apple.mpegurl" : "Detected from browser";
 
@@ -1444,10 +1460,23 @@ video::cue {
       if (window.Hls && Hls.isSupported()) {
         playerType = "HLS.js";
         sourceMime = "application/vnd.apple.mpegurl";
+        // IPTV: aggressive timeout/retry tuning for slow or flaky providers.
         hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 30
+          backBufferLength: 90,
+          maxBufferLength: 60,
+          maxMaxBufferLength: 120,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 6,
+          manifestLoadingTimeOut: 20000,
+          manifestLoadingMaxRetry: 6,
+          levelLoadingTimeOut: 20000,
+          levelLoadingMaxRetry: 6,
+          fragLoadingTimeOut: 30000,
+          fragLoadingMaxRetry: 6,
+          startLevel: -1,
+          capLevelToPlayerSize: true
         });
 
         hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(source));
@@ -1489,17 +1518,23 @@ video::cue {
           }
         });
 
+        // IPTV: distinguish CORS/network vs codec/DRM failures.
         hls.on(Hls.Events.ERROR, (event, data) => {
           if (!data.fatal) return;
 
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            toast("Stream connection interrupted. Retrying…");
+            if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR ||
+                data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT) {
+              toast("Stream blocked (CORS or network). Try ?proxy= or another stream.");
+            } else {
+              toast("Stream connection interrupted. Retrying…");
+            }
             hls.startLoad();
           } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError();
           } else {
             loading.classList.remove("active");
-            toast("This stream couldn't be played.");
+            toast("This stream couldn't be played (codec or DRM).");
             destroyHLS();
           }
         });
@@ -1796,19 +1831,19 @@ video::cue {
 
   document.addEventListener("fullscreenchange", () => {
     setIcon($("fullscreen-btn"), document.fullscreenElement
-      ? "arrow-down-right-and-arrow-up-left"
-      : "arrow-up-left-and-arrow-down-right");
+      ? "corners-in"
+      : "corners-out");
   });
 
   // URL parameters:
   // ?src=VIDEO_URL
   // ?src=VIDEO_URL&title=Movie
   // ?src=VIDEO_URL&captions=EN.vtt&captions=ES.srt
+  // ?src=IPTV_URL&proxy=https://your-cors-proxy.com/?url=   (for CORS-blocked IPTV)
 
   const params = new URLSearchParams(location.search);
   const initialSource = params.get("src");
 
-  icons();
   updatePlayState();
   updateVolumeIcon();
 
