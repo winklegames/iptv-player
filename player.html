@@ -11,7 +11,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <script src="https://code.iconify.design/iconify-icon/3.0.4/iconify-icon.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
 <script type="module" src="https://cdn.jsdelivr.net/npm/simple-liquid-glass/web-component"></script>
 
 <style>
@@ -70,6 +69,7 @@ button { color: inherit; border: 0; cursor: pointer; }
   transition: background 1s ease;
 }
 
+/* Native video — no browser controls, our UI sits on top. */
 #video {
   position: absolute;
   z-index: 1;
@@ -758,7 +758,8 @@ video::cue {
 <div id="app" class="controls-visible">
   <main id="stage">
     <div id="ambient"></div>
-    <video id="video" playsinline preload="metadata"></video>
+    <!-- Native video, no controls attribute. Our UI overlays it. -->
+    <video id="video" playsinline preload="metadata" crossorigin="anonymous"></video>
     <div id="shade"></div>
 
     <div id="empty" aria-label="Open a video">
@@ -910,8 +911,6 @@ video::cue {
   const fileInput = $("file-input");
   const ambient = $("ambient");
 
-  const playBtn = $("play-btn");
-  const centerPlay = $("center-play");
   const progress = $("progress");
   const buffered = $("buffered");
   const scrubber = $("scrubber");
@@ -928,10 +927,6 @@ video::cue {
   const loading = $("loading");
   const toastEl = $("toast");
 
-  // IPTV: public fallback proxy. NOT reliable for segment-heavy HLS.
-  const DEFAULT_PROXY = "https://corsproxy.io/?url=";
-
-  let hls = null;
   let objectURL = null;
   let toastTimer = null;
   let hideTimer = null;
@@ -943,27 +938,13 @@ video::cue {
   let captionTracks = [];
   let captionBlobURLs = [];
   let isLive = false;
-  let qualities = [];
-  let selectedQuality = -1;
   let activeSource = "";
   let playerType = "Unknown";
   let sourceMime = "Unknown";
 
-  let currentSource = "";
-  let currentIsHLS = false;
-  let fallbackAttempted = false;
-
   function setIcon(element, name) {
     if (!element) return;
     element.innerHTML = `<iconify-icon icon="ph:${name}"></iconify-icon>`;
-  }
-
-  // IPTV: optional CORS proxy. Usage: ?proxy=https://your-proxy.com/?url=
-  function proxyUrl(url) {
-    const params = new URLSearchParams(location.search);
-    const proxy = params.get("proxy");
-    if (!proxy) return url;
-    return `${proxy}${encodeURIComponent(url)}`;
   }
 
   function showError(title, message, details = "") {
@@ -1041,7 +1022,7 @@ video::cue {
   }
 
   async function togglePlay() {
-    if (!video.src && !hls) {
+    if (!video.currentSrc) {
       fileInput.click();
       return;
     }
@@ -1163,7 +1144,7 @@ video::cue {
         glass.setAttribute("strength", ".13");
       });
     } catch (_) {
-      // Cross-origin video frames can prevent canvas sampling.
+      // Cross-origin frames can't be sampled; ambient keeps its last color.
     }
   }
 
@@ -1202,16 +1183,6 @@ video::cue {
     sampleTimer = setInterval(updateAmbient, 1500);
   }
 
-  function destroyHLS() {
-    if (hls) {
-      try { hls.destroy(); } catch (_) {}
-      hls = null;
-    }
-    qualities = [];
-    selectedQuality = -1;
-    buildQualityMenu();
-  }
-
   let autoCaptionApplied = false;
 
   function resetCaptions() {
@@ -1231,7 +1202,6 @@ video::cue {
   }
 
   function cleanupSource() {
-    destroyHLS();
     resetCaptions();
 
     if (objectURL) {
@@ -1306,25 +1276,11 @@ video::cue {
   function getCaptionChoices() {
     const choices = [];
 
-    if (hls && hls.subtitleTracks && hls.subtitleTracks.length) {
-      hls.subtitleTracks.forEach((track, index) => {
-        choices.push({
-          id: `hls-${index}`,
-          kind: "hls",
-          index,
-          label: track.name || track.lang || `Subtitle ${index + 1}`,
-          language: track.lang || "",
-          isDefault: !!track.default
-        });
-      });
-    }
-
     try {
       for (let i = 0; i < video.textTracks.length; i++) {
         const track = video.textTracks[i];
         const isExternal = captionTracks.some(item => item.element.track === track);
         if (isExternal) continue;
-        if (hls && hls.subtitleTracks && hls.subtitleTracks.length && track.kind === "subtitles") continue;
         if (track.kind !== "subtitles" && track.kind !== "captions") continue;
 
         choices.push({
@@ -1355,8 +1311,6 @@ video::cue {
   }
 
   function activeCaptionId(choices) {
-    if (hls && hls.subtitleTrack >= 0) return `hls-${hls.subtitleTrack}`;
-
     try {
       for (let i = 0; i < video.textTracks.length; i++) {
         if (video.textTracks[i].mode !== "showing") continue;
@@ -1417,11 +1371,7 @@ video::cue {
       }
     } catch (_) {}
 
-    if (hls) hls.subtitleTrack = choice && choice.kind === "hls" ? choice.index : -1;
-
-    if (choice && (choice.kind === "native" || choice.kind === "external")) {
-      if (choice.track) choice.track.mode = "showing";
-    }
+    if (choice && choice.track) choice.track.mode = "showing";
 
     refreshCaptionSelection();
     if (closeMenu) {
@@ -1440,59 +1390,17 @@ video::cue {
   }
 
   if (video.textTracks) {
-    video.textTracks.addEventListener?.("addtrack", () => {
-      buildCaptionMenu();
-    });
+    video.textTracks.addEventListener?.("addtrack", () => buildCaptionMenu());
     video.textTracks.addEventListener?.("change", refreshCaptionSelection);
   }
 
+  // Native playback has no selectable quality levels. Keep the menu honest.
   function buildQualityMenu() {
     qualityOptions.innerHTML = "";
-
-    const options = [{
-      label: "Auto",
-      value: -1
-    }, ...qualities.map((quality, index) => ({
-      label: quality.height
-        ? `${quality.height}p`
-        : quality.width ? `${quality.width} × ${quality.height || "?"}` : `Level ${index + 1}`,
-      value: index
-    }))];
-
-    options.forEach(option => {
-      const button = document.createElement("button");
-      button.className = "quality-option";
-      button.innerHTML = `<span>${option.label}</span><span class="quality-check"><iconify-icon icon="ph:check"></iconify-icon></span>`;
-
-      if (option.value === selectedQuality) button.classList.add("selected");
-
-      button.addEventListener("click", () => {
-        selectedQuality = option.value;
-
-        if (hls) {
-          hls.currentLevel = option.value;
-        }
-
-        buildQualityMenu();
-        qualityMenu.classList.remove("open");
-        showControls();
-      });
-
-      qualityOptions.appendChild(button);
-    });
-
-    if (!qualities.length) {
-      const unavailable = document.createElement("div");
-      unavailable.className = "menu-item";
-      unavailable.innerHTML = `<span>Automatic quality</span><span class="menu-value">Native</span>`;
-      qualityOptions.appendChild(unavailable);
-    }
-  }
-
-  function setQualityLevels(levels) {
-    qualities = levels || [];
-    selectedQuality = -1;
-    buildQualityMenu();
+    const info = document.createElement("div");
+    info.className = "menu-item";
+    info.innerHTML = `<span>Quality</span><span class="menu-value">Browser-managed</span>`;
+    qualityOptions.appendChild(info);
   }
 
   async function attemptAutoplay() {
@@ -1511,52 +1419,26 @@ video::cue {
     updateVolumeIcon();
   }
 
-  // IPTV fallback chain: native → default proxy → error overlay.
-  function handlePlaybackFailure(message, details = "", wasProxied = false) {
+  function handlePlaybackFailure(message, details = "") {
     loading.classList.remove("active");
-
-    if (!wasProxied && !fallbackAttempted && currentSource && currentIsHLS) {
-      fallbackAttempted = true;
-      toast("Retrying with default CORS proxy…");
-      tryHLS(DEFAULT_PROXY + encodeURIComponent(currentSource), true);
-      return;
-    }
-
     showError(
       "Playback Failed",
-      message + " This stream may be blocked by CORS, require a custom Referer/User-Agent, or use an unsupported codec.",
-      details || currentSource.substring(0, 140)
+      message + " The browser could not decode this stream. It may be blocked by CORS, use an unsupported codec, or require headers the browser can't send.",
+      details || activeSource.substring(0, 140)
     );
   }
 
+  // Let the browser play it. No HLS.js, no proxies — just video.src.
   async function loadSource(source) {
     if (!source) return;
 
     hideError();
     cleanupSource();
-    currentSource = source;
-    currentIsHLS = /\.m3u8(?:$|\?)/i.test(source) || /\/manifest(?:\(|\.m3u8)/i.test(source);
-    fallbackAttempted = false;
+    activeSource = source;
 
-    // Mixed content guard
-    if (location.protocol === "https:" && source.startsWith("http:")) {
-      const params = new URLSearchParams(location.search);
-      if (!params.get("proxy")) {
-        showError(
-          "Insecure Stream Blocked",
-          "This stream uses HTTP, but the player is on an HTTPS page. Browsers block mixed content for security.",
-          source.substring(0, 140)
-        );
-        return;
-      }
-    }
-
-    // Apply optional user-provided proxy.
-    const effectiveSource = proxyUrl(source);
-    activeSource = effectiveSource;
-
-    playerType = currentIsHLS ? "HLS stream" : "Direct video";
-    sourceMime = currentIsHLS ? "application/vnd.apple.mpegurl" : "Detected from browser";
+    const isHLS = /\.m3u8(?:$|\?)/i.test(source) || /\/manifest(?:\(|\.m3u8)/i.test(source);
+    playerType = isHLS ? "HLS stream (native)" : "Direct video (native)";
+    sourceMime = isHLS ? "application/vnd.apple.mpegurl" : "Detected by browser";
 
     loading.classList.add("active");
     showLoadedState(source);
@@ -1570,125 +1452,23 @@ video::cue {
     }
     buildCaptionMenu();
 
-    if (currentIsHLS) {
-      if (window.Hls && Hls.isSupported()) {
-        tryHLS(effectiveSource, !!params.get("proxy"));
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        playerType = "Safari Native HLS";
-        sourceMime = "application/vnd.apple.mpegurl";
-        video.src = effectiveSource;
+    video.src = source;
 
-        video.addEventListener("loadedmetadata", async () => {
-          loading.classList.remove("active");
-          setLiveState(!Number.isFinite(video.duration));
-          updateInfo();
-          await attemptAutoplay();
-          buildQualityMenu();
-        }, { once: true });
-
-        video.addEventListener("error", () => {
-          handlePlaybackFailure("Native HLS playback failed.");
-        }, { once: true });
-      } else {
-        loading.classList.remove("active");
-        showError(
-          "HLS Not Supported",
-          "This browser does not support HLS playback.",
-          "Try Safari on iOS/macOS, or a browser with Media Source Extensions."
-        );
-      }
-    } else {
-      video.src = effectiveSource;
-
-      video.addEventListener("loadedmetadata", async () => {
-        loading.classList.remove("active");
-        setLiveState(false);
-        sourceMime = video.currentSrc.startsWith("blob:")
-          ? "Local video"
-          : video.canPlayType("video/mp4") ? "video/mp4 (browser detected)" : "Browser detected";
-        updateInfo();
-        await attemptAutoplay();
-      }, { once: true });
-
-      video.addEventListener("error", () => {
-        handlePlaybackFailure("Direct video playback failed.");
-      }, { once: true });
-    }
-  }
-
-  function tryHLS(source, useProxy) {
-    playerType = useProxy ? "HLS.js (Proxy)" : "HLS.js";
-    sourceMime = "application/vnd.apple.mpegurl";
-
-    hls = new Hls({
-      enableWorker: true,
-      lowLatencyMode: true,
-      backBufferLength: 90,
-      maxBufferLength: 60,
-      maxMaxBufferLength: 120,
-      liveSyncDurationCount: 3,
-      liveMaxLatencyDurationCount: 6,
-      manifestLoadingTimeOut: 20000,
-      manifestLoadingMaxRetry: useProxy ? 2 : 6,
-      levelLoadingTimeOut: 20000,
-      levelLoadingMaxRetry: useProxy ? 2 : 6,
-      fragLoadingTimeOut: 30000,
-      fragLoadingMaxRetry: useProxy ? 2 : 6,
-      startLevel: -1,
-      capLevelToPlayerSize: true
-    });
-
-    hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(source));
-
-    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => buildCaptionMenu());
-    hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, () => refreshCaptionSelection());
-    hls.on(Hls.Events.SUBTITLE_TRACK_LOADED, () => buildCaptionMenu());
-
-    hls.on(Hls.Events.MANIFEST_PARSED, async (event, data) => {
+    video.addEventListener("loadedmetadata", async () => {
       loading.classList.remove("active");
-      setQualityLevels(hls.levels);
-      setLiveState(!!(data && data.levels && data.levels.some(level =>
-        level.details && level.details.live
-      )));
+      setLiveState(!Number.isFinite(video.duration));
+      sourceMime = video.canPlayType("application/vnd.apple.mpegurl") && isHLS
+        ? "application/vnd.apple.mpegurl (native)"
+        : video.canPlayType("video/mp4") ? "video/mp4 (native)" : "Browser-detected";
       updateInfo();
       await attemptAutoplay();
-    });
+    }, { once: true });
 
-    hls.on(Hls.Events.LEVELS_UPDATED, () => setQualityLevels(hls.levels));
-    hls.on(Hls.Events.LEVEL_SWITCHED, () => updateInfo());
-    hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
-      if (data && data.details) {
-        setLiveState(!!data.details.live);
-        updateInfo();
-      }
-    });
-
-    hls.on(Hls.Events.ERROR, (event, data) => {
-      if (!data.fatal) return;
-
-      const details = `${data.type} / ${data.details}`;
-
-      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-        try { hls.destroy(); } catch (_) {}
-        hls = null;
-        handlePlaybackFailure("Network error while loading stream.", details, useProxy);
-      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-        try { hls.recoverMediaError(); } catch (_) {}
-        setTimeout(() => {
-          if (video.readyState < 2) {
-            try { hls && hls.destroy(); } catch (_) {}
-            hls = null;
-            handlePlaybackFailure("Media decode error (codec or container issue).", details, useProxy);
-          }
-        }, 3000);
-      } else {
-        try { hls.destroy(); } catch (_) {}
-        hls = null;
-        handlePlaybackFailure("This stream could not be played (codec or DRM).", details, useProxy);
-      }
-    });
-
-    hls.attachMedia(video);
+    video.addEventListener("error", () => {
+      const code = video.error ? video.error.code : "?";
+      const msg = video.error ? video.error.message : "Unknown media error";
+      handlePlaybackFailure(`Media error ${code}: ${msg}`);
+    }, { once: true });
   }
 
   function loadFile(file) {
@@ -1778,12 +1558,16 @@ video::cue {
   $("center-play").addEventListener("click", togglePlay);
 
   $("back-btn").addEventListener("click", () => {
-    video.currentTime = Math.max(0, video.currentTime - 10);
+    if (Number.isFinite(video.duration)) {
+      video.currentTime = Math.max(0, video.currentTime - 10);
+    }
     showControls();
   });
 
   $("forward-btn").addEventListener("click", () => {
-    video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10);
+    if (Number.isFinite(video.duration)) {
+      video.currentTime = Math.min(video.duration, video.currentTime + 10);
+    }
     showControls();
   });
 
@@ -1880,11 +1664,8 @@ video::cue {
     if (document.activeElement?.tagName === "INPUT") return;
 
     if (event.code === "Escape") {
-      if ($("error-overlay").classList.contains("open")) {
-        hideError();
-      } else {
-        closeMenus();
-      }
+      if ($("error-overlay").classList.contains("open")) hideError();
+      else closeMenus();
       return;
     }
 
@@ -1894,10 +1675,10 @@ video::cue {
       event.preventDefault();
       togglePlay();
     } else if (event.code === "ArrowLeft") {
-      video.currentTime = Math.max(0, video.currentTime - 10);
+      if (Number.isFinite(video.duration)) video.currentTime = Math.max(0, video.currentTime - 10);
       showControls();
     } else if (event.code === "ArrowRight") {
-      video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10);
+      if (Number.isFinite(video.duration)) video.currentTime = Math.min(video.duration, video.currentTime + 10);
       showControls();
     } else if (event.code === "ArrowUp") {
       video.volume = Math.min(1, video.volume + .05);
@@ -1966,24 +1747,24 @@ video::cue {
   // ?src=VIDEO_URL
   // ?src=VIDEO_URL&title=Movie
   // ?src=VIDEO_URL&captions=EN.vtt&captions=ES.srt
-  // ?src=IPTV_URL&proxy=https://your-cors-proxy.com/?url=   (custom proxy)
   //
-  // If no ?proxy= is supplied and playback fails, the player retries once
-  // through a default public proxy, then shows a full-screen error overlay.
+  // Playback is fully native: video.src = source, browser decides what it can play.
+  // Custom controls drive the <video> through the standard media API.
 
   const params = new URLSearchParams(location.search);
   const initialSource = params.get("src");
 
   updatePlayState();
   updateVolumeIcon();
+  buildQualityMenu();
+  buildCaptionMenu();
 
   if (initialSource) {
     loadSource(initialSource);
   } else {
     showControls();
-    buildQualityMenu();
-    buildCaptionMenu();
   }
 })();
 </script>
 </body>
+</html>
